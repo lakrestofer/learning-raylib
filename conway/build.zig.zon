@@ -1,0 +1,20 @@
+.{
+    .name = "conway",
+    .version = "0.0.0",
+    .minimum_zig_version = "0.12.0",
+    .dependencies = .{
+        .raylib = .{
+            .url = "https://github.com/raysan5/raylib/archive/f1007554a0a8145060797c0aa8169bdaf2c1c6b8.tar.gz",
+            .hash = "122010f0c2d62be418f9b3a4bb9e8f647ae8c66ae2c24f88e395b6567daf6d2bc520",
+        },
+        .raygui = .{
+            .url = "https://github.com/raysan5/raygui/archive/a3a0e86e215145c28726e6f469f13d0aa6647a5e.tar.gz",
+            .hash = "1220563acf904390414e2f3a979fc46292da3b0d9fabe6a15592865b073351545b40",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
