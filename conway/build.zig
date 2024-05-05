@@ -17,15 +17,14 @@ pub fn build(b: *std.Build) void {
     ) orelse false;
 
     // == dependencies ==
-    const raylib = try rl.addRaylib(
-        b,
-        target,
-        raylib_optimize,
-        .{
-            .linux_display_backend = .Wayland,
-            .raygui = true,
-        },
-    );
+    const raylib = try rl.addRaylib(b, target, raylib_optimize, .{});
+    // const raygui_dep = b.dependency("raygui", .{});
+    // rl.addRaygui(b, raylib, raygui_dep);
+    // const raylib_dep = b.dependency("raylib", .{
+    //     .target = target,
+    //     .optimize = raylib_optimize,
+    // });
+    // const raylib = raylib_dep.artifact("raylib");
 
     // == build executable ==
     const exe = b.addExecutable(.{
