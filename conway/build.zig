@@ -28,7 +28,7 @@ pub fn build(b: *std.Build) void {
 
     // == build executable ==
     const exe = b.addExecutable(.{
-        .name = "raytracer",
+        .name = "conway",
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
