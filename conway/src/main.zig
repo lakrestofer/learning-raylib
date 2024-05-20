@@ -1,4 +1,5 @@
 // std lib imports
+const builtin = @import("builtin");
 const std = @import("std");
 const mem = std.mem;
 // external lib imports
@@ -55,7 +56,7 @@ pub const GraphicsState = struct {
         const bh = self.buffer_height;
 
         for (0..bh) |y| {
-            for (0..bh) |x| {
+            for (0..bw) |x| {
                 if (x == 0 or y == 0 or x == (bw - 1) or y == (bh - 1)) {
                     self.pixels[y * bw + x] = rl.BLACK;
                     continue;
@@ -93,6 +94,8 @@ pub const GraphicsState = struct {
 
 pub const State = struct {
     grid: Grid,
+    color_counter: usize = 0,
+    color: rl.Color = rl.RED,
     options: Options,
     should_quit: bool = false,
 
@@ -106,15 +109,42 @@ pub const State = struct {
         self.grid.deinit();
     }
 
+    pub fn toggleColor(self: *Self) void {
+        switch (self.color_counter) {
+            0 => {
+                self.color_counter = 1;
+                self.color = rl.GREEN;
+            },
+            1 => {
+                self.color_counter = 2;
+                self.color = rl.BLUE;
+            },
+            2 => {
+                self.color_counter = 0;
+                self.color = rl.RED;
+            },
+        }
+    }
+
     pub fn quit(self: *Self) void {
         self.should_quit = true;
     }
 };
 
-fn handle_key_event(state: *State) void {
+fn handle_event(state: *State, clickable_grid: *ClickableGrid) void {
     if (rl.IsKeyPressed(rl.KEY_Q)) {
         state.should_quit = true;
         return;
+    }
+
+    const mp = rl.GetMousePosition();
+    for (clickable_grid.grid, 0..) |cell, i| {
+        if (rl.CheckCollisionPointRec(mp, cell) and rl.IsMouseButtonReleased(rl.MOUSE_BUTTON_LEFT)) {
+            if (builtin.mode == .Debug) {
+                rl.TraceLog(rl.LOG_INFO, "clicked cell [%i]", @as(i64, @intCast(i)));
+            }
+            state.grid.grid[i] = !state.grid.grid[i];
+        }
     }
 }
 
@@ -147,6 +177,69 @@ fn draw(graphics: *GraphicsState, screen_width: usize, screen_height: usize) voi
         rl.WHITE,
     );
 }
+const ClickableGrid = struct {
+    x: usize,
+    y: usize,
+    w: usize, // width and height in pixels
+    h: usize,
+    cw: usize, // width and height in cells
+    ch: usize,
+    outer: rl.Rectangle, // the outer bounding box
+    grid: []rl.Rectangle, // the bounding box for each cell
+    allocator: Allocator,
+
+    const Self = @This();
+
+    fn init(
+        x: usize,
+        y: usize,
+        w: usize,
+        h: usize,
+        cw: usize,
+        ch: usize,
+        allocator: Allocator,
+    ) !Self {
+        const outer = rl.Rectangle{
+            .x = @floatFromInt(x),
+            .y = @floatFromInt(y),
+            .width = @floatFromInt(w),
+            .height = @floatFromInt(h),
+        };
+
+        const grid = try allocator.alloc(rl.Rectangle, cw * ch);
+        const cpw = w / cw;
+        const cph = h / ch;
+
+        for (0..ch) |cy| {
+            const cpy = cy * cph + y;
+            for (0..ch) |cx| {
+                // position in pixels
+                const cpx = cx * cpw + x;
+                grid[cy * cw + cx] = rl.Rectangle{
+                    .x = @floatFromInt(cpx),
+                    .y = @floatFromInt(cpy),
+                    .width = @floatFromInt(cpw),
+                    .height = @floatFromInt(cph),
+                };
+            }
+        }
+
+        return Self{
+            .x = x,
+            .y = y,
+            .outer = outer,
+            .grid = grid,
+            .w = w,
+            .h = h,
+            .cw = cw,
+            .ch = ch,
+            .allocator = allocator,
+        };
+    }
+    fn deinit(self: *Self) void {
+        self.allocator.free(self.grid);
+    }
+};
 
 const Grid = struct {
     grid: []bool,
@@ -202,9 +295,19 @@ pub fn main() !void {
     );
     defer graphics.deinit();
     graphics.render(&state);
+    var clickable_grid = try ClickableGrid.init(
+        options.screen_width / 2 - graphics.buffer_width / 2,
+        options.screen_width / 2 - graphics.buffer_width / 2,
+        graphics.buffer_width,
+        graphics.buffer_height,
+        grid.width,
+        grid.height,
+        gpa_allocator,
+    );
+    defer clickable_grid.deinit();
 
     while (!rl.WindowShouldClose() and !state.should_quit) {
-        handle_key_event(&state); // update state
+        handle_event(&state, &clickable_grid); // update state
         graphics.render(&state);
         draw(&graphics, options.screen_width, options.screen_height);
     }
