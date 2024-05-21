@@ -76,17 +76,8 @@ pub const GraphicsState = struct {
             }
         }
 
-        // for (0..self.buffer_height) |y| {
-        //     for (0..self.buffer_height) |x| {
-        //         if ((x / cell_width + y / cell_height) % 2 == 0) {
-        //             self.pixels[y * self.buffer_width + x] = rl.BLACK;
-        //         } else {
-        //             self.pixels[y * self.buffer_height + x] = rl.WHITE;
-        //         }
-        //     }
-        // }
-
         rl.UpdateTexture(self.texture, @ptrCast(self.pixels));
+        rl.DrawText("up: +speed, down: -speed, space; pause, r: reset", @intCast(20), @intCast(state.options.screen_height - 40), 20, rl.GRAY);
     }
 
     pub fn deinit(self: Self) void {
@@ -132,14 +123,34 @@ fn handle_event(state: *State, clickable_grid: *ClickableGrid) void {
         state.paused = !state.paused;
         return;
     }
+    if (rl.IsKeyPressed(rl.KEY_R)) {
+        @memset(state.grid.grid, false);
+        return;
+    }
+    if (rl.IsKeyPressed(rl.KEY_UP)) {
+        state.update_interval -= 50;
+        return;
+    }
+    if (rl.IsKeyPressed(rl.KEY_DOWN)) {
+        state.update_interval += 50;
+        return;
+    }
+    if (state.update_interval <= 50) {
+        state.update_interval = 50;
+    }
+    if (state.update_interval >= 1000) {
+        state.update_interval = 1000;
+    }
 
     const mp = rl.GetMousePosition();
     for (clickable_grid.grid, 0..) |cell, i| {
-        if (rl.CheckCollisionPointRec(mp, cell) and rl.IsMouseButtonReleased(rl.MOUSE_BUTTON_LEFT)) {
-            if (builtin.mode == .Debug) {
-                rl.TraceLog(rl.LOG_INFO, "clicked cell [%i]", @as(i64, @intCast(i)));
+        if (rl.CheckCollisionPointRec(mp, cell)) {
+            if (rl.IsMouseButtonPressed(rl.MOUSE_BUTTON_LEFT)) {
+                state.grid.grid[i] = !state.grid.grid[i];
             }
-            state.grid.grid[i] = !state.grid.grid[i];
+            if (rl.IsMouseButtonDown(rl.MOUSE_BUTTON_LEFT)) {
+                state.grid.grid[i] = true;
+            }
         }
     }
 }
@@ -298,8 +309,8 @@ pub fn main() !void {
     const gpa_allocator = gpa.allocator();
 
     const options = Options{
-        .screen_width = 500,
-        .screen_height = 500,
+        .screen_width = 600,
+        .screen_height = 600,
     };
     init(options); // loads gl context and starts window
     defer deinit();
@@ -313,8 +324,8 @@ pub fn main() !void {
     var state = State.init(grid, 100, options);
     defer state.deinit();
     var graphics = try GraphicsState.init(
-        350, // width of grid in pixels
-        350, // height of grid in pixels
+        options.screen_width - 100, // width of grid in pixels
+        options.screen_height - 100, // height of grid in pixels
         gpa_allocator,
     );
     defer graphics.deinit();
